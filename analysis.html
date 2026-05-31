@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SEO Analysis — SEO Audit Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    .analysis-layout { display: grid; grid-template-columns: 1fr 380px; gap: 24px; align-items: start; }
+    @media (max-width: 900px) { .analysis-layout { grid-template-columns: 1fr; } }
+    .sticky-sidebar { position: sticky; top: 84px; }
+    .score-overview { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+    .score-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
+    .score-mini { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 14px; }
+    .score-mini-label { font-size: 0.75rem; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+    .score-mini-value { font-size: 1.5rem; font-weight: 800; color: var(--navy); }
+    .issues-list { display: flex; flex-direction: column; gap: 12px; }
+    .paywall-blur-wrap { position: relative; }
+    .blurred-issues { filter: blur(6px); user-select: none; pointer-events: none; overflow: hidden; max-height: 320px; }
+    .paywall-cta {
+      background: white;
+      border: 1.5px solid var(--blue);
+      border-radius: var(--radius-xl);
+      padding: 36px;
+      text-align: center;
+      box-shadow: var(--shadow-xl);
+      margin-top: 16px;
+    }
+    .paywall-cta .price-tag { font-size: 2.5rem; font-weight: 800; color: var(--navy); }
+    .what-you-get { display: flex; flex-direction: column; gap: 8px; text-align: left; margin: 20px 0; }
+    .what-you-get li { display: flex; align-items: center; gap: 8px; font-size: 0.9375rem; color: var(--gray-700); }
+    .what-you-get li::before { content: '✓'; color: var(--green); font-weight: 800; }
+    .email-section { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); padding: 24px; margin-top: 20px; }
+    .plan-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+    .plan-option {
+      border: 1.5px solid var(--gray-200);
+      border-radius: var(--radius);
+      padding: 12px;
+      cursor: pointer;
+      text-align: center;
+      transition: all .2s;
+    }
+    .plan-option.selected { border-color: var(--blue); background: var(--blue-light); }
+    .plan-option .plan-price { font-weight: 800; font-size: 1.125rem; color: var(--navy); }
+    .plan-option .plan-label { font-size: 0.75rem; color: var(--gray-500); }
+    .strengths-list { display: flex; flex-direction: column; gap: 8px; }
+    .strength-item { display: flex; align-items: center; gap: 10px; font-size: 0.9375rem; color: var(--gray-700); }
+    .strength-icon { color: var(--green); font-weight: 800; }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="container">
+    <div class="nav-inner">
+      <a href="/" class="logo">
+        <div class="logo-icon">⚡</div>
+        SEO Audit Pro
+      </a>
+      <div class="nav-links">
+        <span id="navUrl" style="font-size: 0.875rem; color: var(--gray-500); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
+      </div>
+      <a href="/" class="btn btn-secondary btn-sm">New audit</a>
+    </div>
+  </div>
+</nav>
+
+<!-- LOADING STATE -->
+<div id="loadingState" class="section">
+  <div class="container container-sm">
+    <div class="loading-state">
+      <div class="spinner" style="width: 56px; height: 56px; border-width: 4px;"></div>
+      <div>
+        <h3 id="loadingTitle">Fetching your website…</h3>
+        <p id="loadingSubtitle" class="mt-2">Our AI is analysing your page content</p>
+      </div>
+      <div id="loadingSteps" style="display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 340px;">
+        <div class="loading-step" id="step1" style="display: flex; align-items: center; gap: 10px; font-size: 0.875rem; color: var(--gray-500);">
+          <div class="spinner spinner-sm"></div> Fetching page content…
+        </div>
+        <div class="loading-step" id="step2" style="display: flex; align-items: center; gap: 10px; font-size: 0.875rem; color: var(--gray-400);">
+          <div style="width: 18px; height: 18px; border-radius: 50%; background: var(--gray-200);"></div> Running SEO checks…
+        </div>
+        <div class="loading-step" id="step3" style="display: flex; align-items: center; gap: 10px; font-size: 0.875rem; color: var(--gray-400);">
+          <div style="width: 18px; height: 18px; border-radius: 50%; background: var(--gray-200);"></div> Analysing AI search readiness…
+        </div>
+        <div class="loading-step" id="step4" style="display: flex; align-items: center; gap: 10px; font-size: 0.875rem; color: var(--gray-400);">
+          <div style="width: 18px; height: 18px; border-radius: 50%; background: var(--gray-200);"></div> Generating your report…
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ERROR STATE -->
+<div id="errorState" class="section hidden">
+  <div class="container container-sm text-center">
+    <div style="font-size: 3rem; margin-bottom: 16px;">⚠️</div>
+    <h3 id="errorTitle">Unable to analyse this URL</h3>
+    <p id="errorMessage" class="mt-2 mb-6">The website may be blocking automated access, or the URL may be incorrect.</p>
+    <a href="/" class="btn btn-primary">Try another URL</a>
+  </div>
+</div>
+
+<!-- RESULTS STATE -->
+<div id="resultsState" class="hidden">
+
+  <!-- Result Header Bar -->
+  <div style="background: white; border-bottom: 1px solid var(--gray-200); padding: 16px 0;">
+    <div class="container">
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+        <div>
+          <div style="font-size: 0.8125rem; color: var(--gray-500); margin-bottom: 2px;">Analysed:</div>
+          <div id="resultUrl" style="font-weight: 600; color: var(--navy); font-size: 0.9375rem;"></div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <div id="overallScoreBadge" class="score-badge"></div>
+          <span style="font-size: 0.8125rem; color: var(--gray-500);" id="resultTime"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-sm">
+    <div class="container">
+      <div class="analysis-layout">
+
+        <!-- MAIN CONTENT -->
+        <div>
+
+          <!-- Score Overview -->
+          <div class="card card-lg mb-4">
+            <h3 style="margin-bottom: 20px;">Your SEO snapshot</h3>
+            <div class="score-overview">
+              <div class="score-ring" id="mainScoreRing">
+                <svg width="140" height="140" viewBox="0 0 140 140">
+                  <circle class="score-ring-track" cx="70" cy="70" r="60"/>
+                  <circle class="score-ring-fill" id="mainScoreFill" cx="70" cy="70" r="60"
+                    stroke-dasharray="376.99"
+                    stroke-dashoffset="376.99"/>
+                </svg>
+                <div style="text-align: center;">
+                  <div class="score-number" id="mainScoreNumber">—</div>
+                  <div class="score-label">Overall</div>
+                </div>
+              </div>
+              <div style="flex: 1;">
+                <p id="scoreSummary" style="font-size: 0.9375rem; margin-bottom: 16px;"></p>
+                <div class="score-detail-grid">
+                  <div class="score-mini">
+                    <div class="score-mini-label">SEO Score</div>
+                    <div class="score-mini-value" id="seoScoreNum">—</div>
+                    <div class="progress-bar mt-2">
+                      <div class="progress-fill" id="seoProgressBar" style="width: 0%"></div>
+                    </div>
+                  </div>
+                  <div class="score-mini">
+                    <div class="score-mini-label">AI Search Score</div>
+                    <div class="score-mini-value" id="aiScoreNum">—</div>
+                    <div class="progress-bar mt-2">
+                      <div class="progress-fill" id="aiProgressBar" style="width: 0%"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- What's working -->
+          <div class="card mb-4" id="strengthsCard">
+            <div class="report-section-title">
+              <div class="section-icon green">✓</div>
+              What's working well
+            </div>
+            <div class="strengths-list" id="strengthsList"></div>
+          </div>
+
+          <!-- Top Issues (Free — 3 shown) -->
+          <div class="card mb-4">
+            <div class="report-section-title">
+              <div class="section-icon" style="background: var(--red-light);">⚠</div>
+              Top issues found
+            </div>
+            <div id="topIssuesList" class="issues-list"></div>
+          </div>
+
+          <!-- PAYWALL SECTION -->
+          <div id="paywallSection">
+            <!-- Blurred preview of more issues -->
+            <div class="card mb-4">
+              <div class="report-section-title">
+                <div class="section-icon blue">📋</div>
+                Full issue analysis
+                <span class="tag blue" style="margin-left: auto; font-size: 0.6875rem;">LOCKED</span>
+              </div>
+              <div class="paywall-blur-wrap">
+                <div class="blurred-issues" id="blurredIssues">
+                  <!-- Placeholder blurred issues -->
+                  <div class="issues-list">
+                    <div class="issue-card"><div class="issue-priority high"></div><div><div class="issue-badge high">High</div><div style="font-weight:600;margin-top:4px;color:var(--navy);">Page load time exceeds 3 seconds on mobile</div><p style="font-size:.875rem;margin-top:4px;">Slow pages rank lower and drive users away before converting.</p></div></div>
+                    <div class="issue-card"><div class="issue-priority medium"></div><div><div class="issue-badge medium">Medium</div><div style="font-weight:600;margin-top:4px;color:var(--navy);">Missing FAQ schema markup</div><p style="font-size:.875rem;margin-top:4px;">FAQ schema increases click-through rates and AI citation potential.</p></div></div>
+                    <div class="issue-card"><div class="issue-priority medium"></div><div><div class="issue-badge medium">Medium</div><div style="font-weight:600;margin-top:4px;color:var(--navy);">No canonical tags on paginated content</div><p style="font-size:.875rem;margin-top:4px;">Duplicate content signals confuse search engines about which page to rank.</p></div></div>
+                    <div class="issue-card"><div class="issue-priority low"></div><div><div class="issue-badge low">Low</div><div style="font-weight:600;margin-top:4px;color:var(--navy);">External links open in same tab</div><p style="font-size:.875rem;margin-top:4px;">Poor UX pattern that increases bounce rate.</p></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- SIDEBAR -->
+        <div class="sticky-sidebar">
+          <div class="paywall-cta">
+            <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--blue); margin-bottom: 8px;">Unlock Full Report</div>
+            <h3 style="margin-bottom: 8px;">Get every fix, ranked by impact</h3>
+            <p style="font-size: 0.875rem; color: var(--gray-500); margin-bottom: 20px;">See all issues, compare competitors, and follow a 90-day plan.</p>
+
+            <div class="plan-toggle">
+              <div class="plan-option selected" id="planOneTime" onclick="selectPlan('one-time')">
+                <div class="plan-price">$199</div>
+                <div class="plan-label">One-time report</div>
+              </div>
+              <div class="plan-option" id="planMonthly" onclick="selectPlan('monthly')">
+                <div class="plan-price">$49<span style="font-size: 0.75rem; font-weight: 400;">/mo</span></div>
+                <div class="plan-label">Monthly audits</div>
+              </div>
+            </div>
+
+            <ul class="what-you-get">
+              <li>All issues, prioritised by impact</li>
+              <li>Competitor comparison (3 sites)</li>
+              <li>90-day action plan</li>
+              <li>PDF report download</li>
+              <li id="monthlyExtra" class="hidden" style="color: var(--blue); font-weight: 600;">+ Monthly re-audit & tracking</li>
+            </ul>
+
+            <div class="email-section">
+              <div class="form-group mb-3">
+                <label class="form-label" for="checkoutEmail">Your email</label>
+                <input type="email" id="checkoutEmail" class="form-input" placeholder="you@company.com">
+                <div class="form-hint">Report will be sent here</div>
+              </div>
+              <div class="form-group mb-3">
+                <label class="form-label" for="checkoutName">Your name</label>
+                <input type="text" id="checkoutName" class="form-input" placeholder="Jane Smith">
+              </div>
+              <button class="btn btn-primary btn-full" id="checkoutBtn" onclick="startCheckout()">
+                Continue to payment — <span id="checkoutPrice">$199</span>
+              </button>
+              <p style="font-size: 0.75rem; color: var(--gray-400); margin-top: 10px; text-align: center;">🔒 Secure payment via Stripe</p>
+            </div>
+          </div>
+
+          <!-- Site info -->
+          <div class="card mt-4" id="siteInfoCard" style="display: none;">
+            <div style="font-weight: 700; color: var(--navy); margin-bottom: 12px; font-size: 0.875rem;">Page details</div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.8125rem;">
+                <span style="color: var(--gray-500);">Page title</span>
+                <span id="pageTitle" style="color: var(--navy); text-align: right; max-width: 180px; overflow: hidden; text-overflow: ellipsis;"></span>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.8125rem;">
+                <span style="color: var(--gray-500);">Word count</span>
+                <span id="wordCount" style="color: var(--navy);"></span>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.8125rem;">
+                <span style="color: var(--gray-500);">Issues found</span>
+                <span id="issueCount" style="color: var(--navy);"></span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const url = params.get('url') || sessionStorage.getItem('auditUrl');
+  let auditId = null;
+  let selectedPlan = 'one-time';
+
+  if (!url) { window.location.href = '/'; }
+
+  document.getElementById('navUrl').textContent = url;
+
+  // Animate loading steps
+  const steps = ['step1', 'step2', 'step3', 'step4'];
+  const stepMessages = [
+    ['Fetching page content…', 'Fetching your website…'],
+    ['Running SEO checks…', 'Checking 40+ SEO signals…'],
+    ['Analysing AI search readiness…', 'Evaluating AI citation potential…'],
+    ['Generating your report…', 'Scoring with Claude AI…']
+  ];
+  let currentStep = 0;
+
+  function advanceStep(index) {
+    if (index > 0) {
+      const prev = document.getElementById(steps[index - 1]);
+      prev.innerHTML = `<div style="width:18px;height:18px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;color:white;font-size:.6875rem;font-weight:800;">✓</div> ${stepMessages[index-1][0].replace('…', '')}`;
+      prev.style.color = 'var(--gray-700)';
+    }
+    if (index < steps.length) {
+      const cur = document.getElementById(steps[index]);
+      cur.innerHTML = `<div class="spinner spinner-sm"></div> ${stepMessages[index][0]}`;
+      cur.style.color = 'var(--gray-700)';
+      document.getElementById('loadingTitle').textContent = stepMessages[index][1];
+    }
+  }
+
+  const stepTimer = setInterval(() => {
+    currentStep++;
+    if (currentStep < steps.length) advanceStep(currentStep);
+    else clearInterval(stepTimer);
+  }, 3500);
+
+  // Run the free analysis
+  async function runAnalysis() {
+    try {
+      const res = await fetch('/api/analyze-free', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      });
+
+      clearInterval(stepTimer);
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showError(err.error || 'Analysis failed', err.detail || 'Please check the URL and try again.');
+        return;
+      }
+
+      const data = await res.json();
+      auditId = data.auditId;
+      showResults(data);
+
+    } catch (err) {
+      clearInterval(stepTimer);
+      showError('Network error', 'Could not reach the analysis server. Please try again.');
+    }
+  }
+
+  function showError(title, message) {
+    document.getElementById('loadingState').classList.add('hidden');
+    document.getElementById('errorState').classList.remove('hidden');
+    document.getElementById('errorTitle').textContent = title;
+    document.getElementById('errorMessage').textContent = message;
+  }
+
+  function getScoreClass(score) {
+    if (score >= 80) return 'excellent';
+    if (score >= 60) return 'good';
+    if (score >= 40) return 'fair';
+    return 'poor';
+  }
+
+  function getScoreLabel(score) {
+    if (score >= 80) return 'Excellent';
+    if (score >= 60) return 'Good';
+    if (score >= 40) return 'Needs improvement';
+    return 'Critical issues';
+  }
+
+  function showResults(data) {
+    document.getElementById('loadingState').classList.add('hidden');
+    document.getElementById('resultsState').classList.remove('hidden');
+
+    const overall = data.overallScore || 0;
+    const seo = data.seoScore || 0;
+    const ai = data.aiScore || 0;
+    const cls = getScoreClass(overall);
+
+    // Header
+    document.getElementById('resultUrl').textContent = url;
+    document.getElementById('overallScoreBadge').textContent = getScoreLabel(overall);
+    document.getElementById('overallScoreBadge').className = `score-badge ${cls}`;
+    document.getElementById('resultTime').textContent = 'Analysed just now';
+
+    // Score ring animation
+    const circumference = 376.99;
+    const offset = circumference - (overall / 100) * circumference;
+    const fill = document.getElementById('mainScoreFill');
+    fill.className = `score-ring-fill ${cls}`;
+    setTimeout(() => { fill.style.strokeDashoffset = offset; }, 100);
+    document.getElementById('mainScoreNumber').textContent = overall;
+
+    // Sub scores
+    document.getElementById('seoScoreNum').textContent = seo;
+    document.getElementById('aiScoreNum').textContent = ai;
+    const seoBar = document.getElementById('seoProgressBar');
+    const aiBar = document.getElementById('aiProgressBar');
+    seoBar.className = `progress-fill ${getScoreClass(seo)}`;
+    aiBar.className = `progress-fill ${getScoreClass(ai)}`;
+    setTimeout(() => {
+      seoBar.style.width = seo + '%';
+      aiBar.style.width = ai + '%';
+    }, 200);
+
+    // Summary
+    document.getElementById('scoreSummary').textContent = data.summary || '';
+
+    // Strengths
+    if (data.strengths && data.strengths.length) {
+      const list = document.getElementById('strengthsList');
+      data.strengths.slice(0, 4).forEach(s => {
+        const el = document.createElement('div');
+        el.className = 'strength-item';
+        el.innerHTML = `<span class="strength-icon">✓</span><span>${s}</span>`;
+        list.appendChild(el);
+      });
+    } else {
+      document.getElementById('strengthsCard').style.display = 'none';
+    }
+
+    // Top Issues (3)
+    const issuesList = document.getElementById('topIssuesList');
+    const topIssues = (data.topIssues || []).slice(0, 3);
+    if (topIssues.length === 0) {
+      issuesList.innerHTML = '<p style="color:var(--gray-500);font-size:.875rem;">No critical issues found for the free preview.</p>';
+    } else {
+      topIssues.forEach(issue => {
+        issuesList.appendChild(buildIssueCard(issue));
+      });
+    }
+
+    // Site info
+    if (data.pageTitle || data.wordCount) {
+      document.getElementById('siteInfoCard').style.display = 'block';
+      document.getElementById('pageTitle').textContent = data.pageTitle || '—';
+      document.getElementById('wordCount').textContent = (data.wordCount || 0).toLocaleString() + ' words';
+      document.getElementById('issueCount').textContent = (data.issueCount || topIssues.length) + ' issues';
+    }
+  }
+
+  function buildIssueCard(issue) {
+    const div = document.createElement('div');
+    div.className = 'issue-card';
+    const priority = issue.priority || 'medium';
+    div.innerHTML = `
+      <div class="issue-priority ${priority}"></div>
+      <div style="flex:1;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span class="issue-badge ${priority}">${priority.charAt(0).toUpperCase() + priority.slice(1)}</span>
+          <span class="tag" style="font-size:.6875rem;">${(issue.category || '').replace('-', ' ')}</span>
+        </div>
+        <div style="font-weight:700;color:var(--navy);margin-bottom:4px;">${issue.title || ''}</div>
+        <p style="font-size:.875rem;margin-bottom:8px;">${issue.description || ''}</p>
+        ${issue.fix ? `<div style="font-size:.8125rem;color:var(--blue);font-weight:600;">→ Fix: ${issue.fix}</div>` : ''}
+      </div>
+    `;
+    return div;
+  }
+
+  function selectPlan(plan) {
+    selectedPlan = plan;
+    document.getElementById('planOneTime').classList.toggle('selected', plan === 'one-time');
+    document.getElementById('planMonthly').classList.toggle('selected', plan === 'monthly');
+    document.getElementById('checkoutPrice').textContent = plan === 'monthly' ? '$49/mo' : '$199';
+    document.getElementById('monthlyExtra').classList.toggle('hidden', plan !== 'monthly');
+  }
+
+  async function startCheckout() {
+    const email = document.getElementById('checkoutEmail').value.trim();
+    const name = document.getElementById('checkoutName').value.trim();
+
+    if (!email) {
+      document.getElementById('checkoutEmail').focus();
+      document.getElementById('checkoutEmail').style.borderColor = 'var(--red)';
+      return;
+    }
+    if (!email.includes('@')) {
+      document.getElementById('checkoutEmail').style.borderColor = 'var(--red)';
+      return;
+    }
+
+    const btn = document.getElementById('checkoutBtn');
+    btn.disabled = true;
+    btn.textContent = 'Redirecting to payment…';
+
+    try {
+      const res = await fetch('/api/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ auditId, email, name, plan: selectedPlan, url })
+      });
+
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error(data.error || 'Checkout failed');
+      }
+    } catch (err) {
+      btn.disabled = false;
+      btn.innerHTML = `Continue to payment — <span id="checkoutPrice">${selectedPlan === 'monthly' ? '$49/mo' : '$199'}</span>`;
+      alert('Could not start checkout: ' + err.message);
+    }
+  }
+
+  // Start analysis immediately
+  runAnalysis();
+</script>
+</body>
+</html>

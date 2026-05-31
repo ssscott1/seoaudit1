@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Successful — SEO Audit Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body style="background: white;">
+
+<nav>
+  <div class="container">
+    <div class="nav-inner">
+      <a href="/" class="logo">
+        <div class="logo-icon">⚡</div>
+        SEO Audit Pro
+      </a>
+    </div>
+  </div>
+</nav>
+
+<div style="min-height: 80vh; display: flex; align-items: center; justify-content: center; padding: 40px 24px;">
+  <div style="max-width: 540px; width: 100%; text-align: center;">
+
+    <!-- Animated checkmark -->
+    <div id="waitingState">
+      <div style="width: 80px; height: 80px; background: var(--green-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; font-size: 2.5rem;">
+        <div class="spinner" style="border-top-color: var(--green);"></div>
+      </div>
+      <h2 style="margin-bottom: 12px;">Payment confirmed!</h2>
+      <p style="font-size: 1.0625rem; margin-bottom: 32px;">We're running your full analysis now. This takes about 60 seconds…</p>
+
+      <div class="card" style="text-align: left; margin-bottom: 24px;">
+        <div style="font-weight: 700; color: var(--navy); margin-bottom: 12px; font-size: 0.875rem;">What's happening:</div>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <div id="ps1" style="display: flex; align-items: center; gap: 10px; font-size: 0.875rem; color: var(--gray-700);">
+            <div class="spinner spinner-sm"></div> Running full SEO analysis…
+          </div>
+          <div id="ps2" style="display: flex; align-items: center; gap: 10px; font-size: 0.875rem; color: var(--gray-400);">
+            <div style="width:18px;height:18px;border-radius:50%;background:var(--gray-200);flex-shrink:0;"></div> Comparing competitors…
+          </div>
+          <div id="ps3" style="display: flex; align-items: center; gap: 10px; font-size: 0.875rem; color: var(--gray-400);">
+            <div style="width:18px;height:18px;border-radius:50%;background:var(--gray-200);flex-shrink:0;"></div> Building 90-day action plan…
+          </div>
+          <div id="ps4" style="display: flex; align-items: center; gap: 10px; font-size: 0.875rem; color: var(--gray-400);">
+            <div style="width:18px;height:18px;border-radius:50%;background:var(--gray-200);flex-shrink:0;"></div> Preparing your report…
+          </div>
+        </div>
+      </div>
+
+      <p style="font-size: 0.875rem; color: var(--gray-500);">Your report will also be emailed to <strong id="emailDisplay"></strong></p>
+    </div>
+
+    <div id="readyState" class="hidden">
+      <div style="width: 80px; height: 80px; background: var(--green-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; font-size: 2.5rem;">✓</div>
+      <h2 style="margin-bottom: 12px;">Your report is ready!</h2>
+      <p style="font-size: 1.0625rem; margin-bottom: 32px;">We've emailed your full report. Click below to view it now.</p>
+      <a id="viewReportBtn" href="#" class="btn btn-primary btn-lg">View your full report →</a>
+      <p style="margin-top: 16px; font-size: 0.875rem; color: var(--gray-500);">Also check your email — we've sent a copy there too.</p>
+    </div>
+
+    <div id="errorState" class="hidden">
+      <div style="font-size: 3rem; margin-bottom: 16px;">⚠️</div>
+      <h3 style="margin-bottom: 12px;">Analysis taking longer than expected</h3>
+      <p style="margin-bottom: 24px;">Don't worry — your report will be emailed to you shortly. If you don't receive it within 10 minutes, please contact support.</p>
+      <a href="/" class="btn btn-secondary">Back to home</a>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const sessionId = params.get('session_id');
+  const auditId = params.get('audit_id');
+  const email = params.get('email');
+
+  if (email) document.getElementById('emailDisplay').textContent = email;
+
+  // Animate steps
+  const steps = ['ps1','ps2','ps3','ps4'];
+  const labels = ['Running full SEO analysis…','Comparing competitors…','Building 90-day action plan…','Preparing your report…'];
+  let step = 0;
+  const stepInterval = setInterval(() => {
+    if (step > 0) {
+      const prev = document.getElementById(steps[step-1]);
+      prev.innerHTML = `<div style="width:18px;height:18px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;color:white;font-size:.6875rem;font-weight:800;flex-shrink:0;">✓</div> ${labels[step-1].replace('…','')}`;
+      prev.style.color = 'var(--gray-700)';
+    }
+    if (step < steps.length) {
+      const cur = document.getElementById(steps[step]);
+      cur.innerHTML = `<div class="spinner spinner-sm"></div> ${labels[step]}`;
+      cur.style.color = 'var(--gray-700)';
+    }
+    step++;
+    if (step >= steps.length) clearInterval(stepInterval);
+  }, 6000);
+
+  // Poll for report completion
+  let pollCount = 0;
+  const maxPolls = 30; // 5 minutes max
+
+  async function pollStatus() {
+    if (!auditId && !sessionId) {
+      setTimeout(() => {
+        document.getElementById('readyState').classList.remove('hidden');
+        document.getElementById('waitingState').classList.add('hidden');
+      }, 30000);
+      return;
+    }
+
+    try {
+      const id = auditId || sessionId;
+      const res = await fetch(`/api/check-status?id=${id}&type=${auditId ? 'audit' : 'session'}`);
+      const data = await res.json();
+
+      if (data.status === 'paid_complete' && data.reportUrl) {
+        clearInterval(stepInterval);
+        document.getElementById('viewReportBtn').href = data.reportUrl;
+        document.getElementById('waitingState').classList.add('hidden');
+        document.getElementById('readyState').classList.remove('hidden');
+      } else if (data.status === 'failed') {
+        clearInterval(stepInterval);
+        document.getElementById('waitingState').classList.add('hidden');
+        document.getElementById('errorState').classList.remove('hidden');
+      } else {
+        pollCount++;
+        if (pollCount < maxPolls) {
+          setTimeout(pollStatus, 10000); // poll every 10 seconds
+        } else {
+          document.getElementById('waitingState').classList.add('hidden');
+          document.getElementById('errorState').classList.remove('hidden');
+        }
+      }
+    } catch(e) {
+      pollCount++;
+      if (pollCount < maxPolls) setTimeout(pollStatus, 10000);
+    }
+  }
+
+  // Start polling after 5 seconds
+  setTimeout(pollStatus, 5000);
+</script>
+</body>
+</html>

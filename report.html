@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Full SEO Report — SEO Audit Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    .report-layout { display: grid; grid-template-columns: 260px 1fr; gap: 28px; align-items: start; }
+    @media (max-width: 900px) { .report-layout { grid-template-columns: 1fr; } .report-toc { display: none; } }
+    .report-toc { position: sticky; top: 84px; background: white; border: 1px solid var(--gray-200); border-radius: var(--radius-lg); padding: 20px; }
+    .toc-title { font-weight: 700; color: var(--navy); font-size: 0.875rem; margin-bottom: 12px; }
+    .toc-link { display: block; padding: 6px 10px; color: var(--gray-600); font-size: 0.8125rem; border-radius: 6px; text-decoration: none; transition: all .15s; }
+    .toc-link:hover, .toc-link.active { background: var(--blue-light); color: var(--blue); }
+    .report-meta { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+    .meta-item { display: flex; align-items: center; gap: 6px; font-size: 0.8125rem; color: #94a3b8; }
+    .competitor-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+    .competitor-card { border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 16px; }
+    .competitor-name { font-weight: 700; color: var(--navy); font-size: 0.9375rem; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .competitor-score { font-size: 2rem; font-weight: 800; }
+    .issues-filter { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+    .filter-btn { padding: 6px 14px; border-radius: 100px; font-size: 0.8125rem; font-weight: 600; cursor: pointer; border: 1.5px solid var(--gray-200); background: white; color: var(--gray-600); transition: all .15s; }
+    .filter-btn.active { border-color: var(--blue); background: var(--blue-light); color: var(--blue); }
+    .filter-btn.critical-filter.active { border-color: var(--red); background: var(--red-light); color: #991b1b; }
+    .filter-btn.high-filter.active { border-color: var(--amber); background: var(--amber-light); color: #92400e; }
+    .category-section { margin-bottom: 28px; }
+    .category-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-weight: 700; color: var(--navy); }
+    .print-actions { display: flex; gap: 12px; align-items: center; }
+    @media print {
+      nav, .report-toc, .print-actions, #downloadPdf { display: none !important; }
+      .report-layout { grid-template-columns: 1fr; }
+      .report-section { break-inside: avoid; }
+      body { background: white; }
+      .report-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="container">
+    <div class="nav-inner">
+      <a href="/" class="logo">
+        <div class="logo-icon">⚡</div>
+        SEO Audit Pro
+      </a>
+      <div class="nav-links" id="navUrl"></div>
+      <div class="print-actions">
+        <button class="btn btn-secondary btn-sm" onclick="window.print()">🖨 Print</button>
+        <button class="btn btn-primary btn-sm" id="downloadPdf" onclick="downloadPdf()">⬇ Download PDF</button>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- LOADING -->
+<div id="loadingState" class="section">
+  <div class="container container-sm">
+    <div class="loading-state">
+      <div class="spinner" style="width: 56px; height: 56px; border-width: 4px;"></div>
+      <div>
+        <h3>Loading your report…</h3>
+        <p class="mt-2">Preparing your full analysis</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ERROR -->
+<div id="errorState" class="hidden section">
+  <div class="container container-sm text-center">
+    <div style="font-size: 3rem; margin-bottom: 16px;">🔒</div>
+    <h3 id="errorTitle">Report not found</h3>
+    <p id="errorMsg" class="mt-2 mb-6">This report link may have expired or is invalid.</p>
+    <a href="/" class="btn btn-primary">Start new audit</a>
+  </div>
+</div>
+
+<!-- REPORT CONTENT -->
+<div id="reportContent" class="hidden">
+
+  <!-- Report Header -->
+  <div class="report-header">
+    <div class="container">
+      <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 20px; margin-bottom: 28px;">
+        <div>
+          <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #60a5fa; margin-bottom: 8px;">Full SEO & AI Search Report</div>
+          <h1 id="reportSiteTitle" style="font-size: 1.5rem; margin-bottom: 8px;"></h1>
+          <div class="report-meta">
+            <div class="meta-item">📅 <span id="reportDate"></span></div>
+            <div class="meta-item">🔗 <span id="reportUrlMeta"></span></div>
+          </div>
+        </div>
+        <div id="reportOverallScore" class="score-card" style="min-width: 140px;">
+          <h5>Overall Score</h5>
+          <div class="score-ring" style="width:100px;height:100px;">
+            <svg width="100" height="100" viewBox="0 0 100 100">
+              <circle class="score-ring-track" cx="50" cy="50" r="42" stroke-width="8"/>
+              <circle class="score-ring-fill" id="headerScoreFill" cx="50" cy="50" r="42"
+                stroke-width="8" stroke-dasharray="263.9" stroke-dashoffset="263.9"/>
+            </svg>
+            <div style="text-align:center;">
+              <div class="score-number" id="headerScoreNum" style="font-size:1.5rem;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Score tiles -->
+      <div class="scores-grid">
+        <div class="score-card" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.1);">
+          <h5 style="color:#94a3b8;">SEO Score</h5>
+          <div class="score-number" id="seoScore" style="color:white;font-size:1.75rem;"></div>
+          <div class="progress-bar" style="background:rgba(255,255,255,.1);width:100%;margin-top:8px;"><div class="progress-fill" id="seoBar" style="width:0%"></div></div>
+        </div>
+        <div class="score-card" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.1);">
+          <h5 style="color:#94a3b8;">AI Search Score</h5>
+          <div class="score-number" id="aiScore" style="color:white;font-size:1.75rem;"></div>
+          <div class="progress-bar" style="background:rgba(255,255,255,.1);width:100%;margin-top:8px;"><div class="progress-fill" id="aiBar" style="width:0%"></div></div>
+        </div>
+        <div class="score-card" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.1);">
+          <h5 style="color:#94a3b8;">Issues Found</h5>
+          <div class="score-number" id="issueCount" style="color:white;font-size:1.75rem;"></div>
+          <div style="font-size:.75rem;color:#94a3b8;margin-top:4px;" id="criticalCount"></div>
+        </div>
+        <div class="score-card" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.1);">
+          <h5 style="color:#94a3b8;">Quick Wins</h5>
+          <div class="score-number" id="quickWinCount" style="color:white;font-size:1.75rem;"></div>
+          <div style="font-size:.75rem;color:#94a3b8;margin-top:4px;">Easy fixes available</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Report Body -->
+  <div class="section-sm">
+    <div class="container">
+      <div class="report-layout">
+
+        <!-- TOC -->
+        <div class="report-toc">
+          <div class="toc-title">Contents</div>
+          <a href="#issues" class="toc-link">📋 All Issues</a>
+          <a href="#competitors" class="toc-link">🏆 Competitors</a>
+          <a href="#action-plan" class="toc-link">🗓 90-Day Plan</a>
+          <a href="#ai-search" class="toc-link">🤖 AI Search</a>
+          <a href="#strengths" class="toc-link">✓ Strengths</a>
+          <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--gray-200);">
+            <button class="btn btn-primary btn-full btn-sm" onclick="window.print()">🖨 Print report</button>
+          </div>
+        </div>
+
+        <!-- Main Content -->
+        <div>
+
+          <!-- Summary -->
+          <div class="report-section mb-4">
+            <div class="report-section-title">
+              <div class="section-icon blue">📊</div>
+              Executive Summary
+            </div>
+            <p id="execSummary" style="font-size: 1rem; line-height: 1.8; color: var(--gray-700);"></p>
+          </div>
+
+          <!-- All Issues -->
+          <div class="report-section mb-4" id="issues">
+            <div class="report-section-title">
+              <div class="section-icon" style="background:var(--red-light);">⚠</div>
+              All Issues — Prioritised
+            </div>
+
+            <div class="issues-filter">
+              <button class="filter-btn active" onclick="filterIssues('all', this)">All</button>
+              <button class="filter-btn critical-filter" onclick="filterIssues('critical', this)">🔴 Critical</button>
+              <button class="filter-btn high-filter" onclick="filterIssues('high', this)">🟡 High</button>
+              <button class="filter-btn" onclick="filterIssues('medium', this)">🔵 Medium</button>
+              <button class="filter-btn" onclick="filterIssues('low', this)">⚪ Low</button>
+            </div>
+
+            <div id="allIssuesList" class="issues-list"></div>
+          </div>
+
+          <!-- Competitor Comparison -->
+          <div class="report-section mb-4" id="competitors">
+            <div class="report-section-title">
+              <div class="section-icon green">🏆</div>
+              Competitor Comparison
+            </div>
+            <p style="font-size: 0.875rem; color: var(--gray-500); margin-bottom: 16px;">How your site compares to similar businesses in your space</p>
+            <div class="competitor-grid" id="competitorGrid"></div>
+            <div id="competitorInsights" style="margin-top: 20px;"></div>
+          </div>
+
+          <!-- 90-Day Action Plan -->
+          <div class="report-section mb-4" id="action-plan">
+            <div class="report-section-title">
+              <div class="section-icon amber">🗓</div>
+              90-Day Action Plan
+            </div>
+            <p style="font-size: 0.875rem; color: var(--gray-500); margin-bottom: 24px;">A prioritised roadmap to improve your SEO and AI search presence</p>
+            <div class="timeline" id="actionTimeline"></div>
+          </div>
+
+          <!-- AI Search Deep Dive -->
+          <div class="report-section mb-4" id="ai-search">
+            <div class="report-section-title">
+              <div class="section-icon" style="background:linear-gradient(135deg,#ede9fe,#ddd6fe);">🤖</div>
+              AI Search Optimisation Deep Dive
+            </div>
+            <div id="aiSearchContent"></div>
+          </div>
+
+          <!-- Strengths -->
+          <div class="report-section mb-4" id="strengths">
+            <div class="report-section-title">
+              <div class="section-icon green">✓</div>
+              What You're Doing Well
+            </div>
+            <div id="strengthsList" class="issues-list"></div>
+          </div>
+
+          <!-- Next Steps CTA -->
+          <div style="background: linear-gradient(135deg, var(--navy), #1e3a5f); border-radius: var(--radius-xl); padding: 32px; text-align: center; margin-top: 32px;">
+            <h3 style="color: white; margin-bottom: 8px;">Need help implementing these changes?</h3>
+            <p style="color: #94a3b8; margin-bottom: 24px;">Track your progress month-over-month with our monthly audit subscription.</p>
+            <a href="/#pricing" class="btn btn-primary">Upgrade to monthly audits — $49/mo</a>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const auditId = params.get('id');
+  const token = params.get('token');
+
+  if (!auditId) {
+    document.getElementById('loadingState').classList.add('hidden');
+    document.getElementById('errorState').classList.remove('hidden');
+  } else {
+    loadReport();
+  }
+
+  async function loadReport() {
+    try {
+      const res = await fetch(`/api/get-report?id=${auditId}&token=${token || ''}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showError(err.error || 'Report not found', err.detail || '');
+        return;
+      }
+      const data = await res.json();
+      renderReport(data);
+    } catch (err) {
+      showError('Could not load report', 'Please check your internet connection and try again.');
+    }
+  }
+
+  function showError(title, msg) {
+    document.getElementById('loadingState').classList.add('hidden');
+    document.getElementById('errorState').classList.remove('hidden');
+    document.getElementById('errorTitle').textContent = title;
+    document.getElementById('errorMsg').textContent = msg;
+  }
+
+  function getScoreClass(s) {
+    if (s >= 80) return 'excellent'; if (s >= 60) return 'good'; if (s >= 40) return 'fair'; return 'poor';
+  }
+
+  function renderReport(data) {
+    document.getElementById('loadingState').classList.add('hidden');
+    document.getElementById('reportContent').classList.remove('hidden');
+
+    const url = data.url || '';
+    const overall = data.overallScore || 0;
+    const seo = data.seoScore || 0;
+    const ai = data.aiScore || 0;
+    const report = data.fullReportData || {};
+    const allIssues = report.issues || data.fullIssues || [];
+    const competitors = report.competitorAnalysis || data.competitorAnalysis || [];
+    const actionPlan = report.actionPlan || data.actionPlan || {};
+    const strengths = report.strengths || data.strengths || [];
+    const aiSection = report.aiSearchOptimisation || {};
+
+    // Nav
+    try { document.getElementById('navUrl').textContent = new URL(url).hostname; } catch(e) { document.getElementById('navUrl').textContent = url; }
+
+    // Header
+    document.getElementById('reportSiteTitle').textContent = data.pageTitle || url;
+    document.getElementById('reportUrlMeta').textContent = url;
+    document.getElementById('reportDate').textContent = new Date(data.completedAt || data.createdAt || Date.now()).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    // Overall score ring
+    const circumference = 263.9;
+    const fill = document.getElementById('headerScoreFill');
+    fill.className = `score-ring-fill ${getScoreClass(overall)}`;
+    setTimeout(() => { fill.style.strokeDashoffset = circumference - (overall / 100) * circumference; }, 100);
+    document.getElementById('headerScoreNum').textContent = overall;
+
+    // Sub scores
+    document.getElementById('seoScore').textContent = seo;
+    document.getElementById('aiScore').textContent = ai;
+    const seoBar = document.getElementById('seoBar'); seoBar.className = `progress-fill ${getScoreClass(seo)}`; setTimeout(() => { seoBar.style.width = seo + '%'; }, 200);
+    const aiBar = document.getElementById('aiBar'); aiBar.className = `progress-fill ${getScoreClass(ai)}`; setTimeout(() => { aiBar.style.width = ai + '%'; }, 300);
+    document.getElementById('issueCount').textContent = allIssues.length;
+    const criticals = allIssues.filter(i => i.priority === 'critical').length;
+    document.getElementById('criticalCount').textContent = criticals + ' critical';
+    document.getElementById('quickWinCount').textContent = (report.quickWins || []).length || allIssues.filter(i => i.priority === 'low' || i.effort === 'low').length;
+
+    // Summary
+    document.getElementById('execSummary').textContent = report.summary || data.summary || '';
+
+    // All Issues
+    renderAllIssues(allIssues);
+
+    // Competitors
+    renderCompetitors(competitors, overall, seo, ai, report.competitorInsights);
+
+    // Action Plan
+    renderActionPlan(actionPlan);
+
+    // AI Search
+    renderAiSearch(aiSection, ai);
+
+    // Strengths
+    renderStrengths(strengths);
+  }
+
+  let allIssuesData = [];
+
+  function renderAllIssues(issues) {
+    allIssuesData = issues;
+    const container = document.getElementById('allIssuesList');
+    container.innerHTML = '';
+    if (!issues.length) { container.innerHTML = '<p style="color:var(--gray-500);">No issues found — great work!</p>'; return; }
+    issues.forEach(issue => container.appendChild(buildIssueCard(issue, true)));
+  }
+
+  function filterIssues(priority, btn) {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const container = document.getElementById('allIssuesList');
+    container.innerHTML = '';
+    const filtered = priority === 'all' ? allIssuesData : allIssuesData.filter(i => i.priority === priority);
+    if (!filtered.length) { container.innerHTML = `<p style="color:var(--gray-500);">No ${priority} priority issues found.</p>`; return; }
+    filtered.forEach(issue => container.appendChild(buildIssueCard(issue, true)));
+  }
+
+  function buildIssueCard(issue, showFix = false) {
+    const div = document.createElement('div');
+    div.className = 'issue-card';
+    const p = issue.priority || 'medium';
+    div.setAttribute('data-priority', p);
+    div.innerHTML = `
+      <div class="issue-priority ${p}"></div>
+      <div style="flex:1;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+          <span class="issue-badge ${p}">${p.charAt(0).toUpperCase() + p.slice(1)}</span>
+          ${issue.category ? `<span class="tag" style="font-size:.6875rem;">${issue.category.replace(/-/g,' ')}</span>` : ''}
+          ${issue.effort ? `<span class="tag" style="font-size:.6875rem;background:#f0fdf4;color:#166534;">Effort: ${issue.effort}</span>` : ''}
+        </div>
+        <div style="font-weight:700;color:var(--navy);margin-bottom:4px;">${issue.title || ''}</div>
+        <p style="font-size:.875rem;margin-bottom:${showFix && issue.fix ? '8px' : '0'};">${issue.description || ''}</p>
+        ${issue.impact ? `<div style="font-size:.8125rem;color:var(--green);margin-bottom:6px;">📈 Impact: ${issue.impact}</div>` : ''}
+        ${showFix && issue.fix ? `<div style="font-size:.8125rem;color:var(--blue);font-weight:600;background:var(--blue-light);padding:8px 12px;border-radius:6px;">→ Fix: ${issue.fix}</div>` : ''}
+      </div>
+    `;
+    return div;
+  }
+
+  function renderCompetitors(competitors, myOverall, mySeo, myAi, insights) {
+    const grid = document.getElementById('competitorGrid');
+    grid.innerHTML = '';
+
+    // Add your site first
+    const mySite = { name: 'Your Site', score: myOverall, seo: mySeo, ai: myAi, isYou: true };
+    const all = [mySite, ...(competitors || [])];
+
+    all.forEach(c => {
+      const score = c.overallScore || c.score || 0;
+      const cls = getScoreClass(score);
+      const div = document.createElement('div');
+      div.className = 'competitor-card';
+      if (c.isYou) div.style.borderColor = 'var(--blue)';
+      div.innerHTML = `
+        <div class="competitor-name" title="${c.url || c.name || ''}">${c.isYou ? '⭐ Your Site' : (c.name || c.url || 'Competitor')}</div>
+        <div class="competitor-score text-${cls === 'excellent' ? 'green' : cls === 'good' ? 'blue' : cls === 'fair' ? 'amber' : 'red'}" style="font-size:2rem;font-weight:800;">${score}</div>
+        <div style="font-size:.75rem;color:var(--gray-500);margin-top:2px;">/100 overall</div>
+        ${c.seo !== undefined ? `<div style="font-size:.8125rem;margin-top:8px;display:flex;justify-content:space-between;"><span style="color:var(--gray-500);">SEO</span><span style="font-weight:600;">${c.seo || c.seoScore || '—'}</span></div>` : ''}
+        ${c.ai !== undefined ? `<div style="font-size:.8125rem;display:flex;justify-content:space-between;"><span style="color:var(--gray-500);">AI</span><span style="font-weight:600;">${c.ai || c.aiScore || '—'}</span></div>` : ''}
+      `;
+      grid.appendChild(div);
+    });
+
+    if (insights) {
+      document.getElementById('competitorInsights').innerHTML = `
+        <div class="alert alert-info" style="margin-top:16px;">
+          <span>💡</span>
+          <span>${insights}</span>
+        </div>
+      `;
+    }
+  }
+
+  function renderActionPlan(plan) {
+    const timeline = document.getElementById('actionTimeline');
+    timeline.innerHTML = '';
+    const months = [
+      { key: 'month1', label: 'Month 1 — Quick Wins', cls: 'month-1', num: '1' },
+      { key: 'month2', label: 'Month 2 — Core Improvements', cls: 'month-2', num: '2' },
+      { key: 'month3', label: 'Month 3 — Growth & AI Optimisation', cls: 'month-3', num: '3' }
+    ];
+    months.forEach(m => {
+      const tasks = plan[m.key] || [];
+      if (!tasks.length) return;
+      const item = document.createElement('div');
+      item.className = 'timeline-item';
+      item.innerHTML = `
+        <div class="timeline-dot ${m.cls}">${m.num}</div>
+        <div class="timeline-month">${m.label}</div>
+        <div class="timeline-tasks">
+          ${tasks.map(t => `<div class="timeline-task">${typeof t === 'string' ? t : (t.task || t.title || JSON.stringify(t))}</div>`).join('')}
+        </div>
+      `;
+      timeline.appendChild(item);
+    });
+    if (!timeline.children.length) {
+      timeline.innerHTML = '<p style="color:var(--gray-500);">Action plan not available.</p>';
+    }
+  }
+
+  function renderAiSearch(aiSection, aiScore) {
+    const container = document.getElementById('aiSearchContent');
+    const cls = getScoreClass(aiScore);
+    let html = `
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;padding:16px;background:var(--gray-50);border-radius:var(--radius);border:1px solid var(--gray-200);">
+        <div style="font-size:2.5rem;font-weight:800;color:var(--${cls==='excellent'?'green':cls==='good'?'blue':cls==='fair'?'amber':'red'});">${aiScore}</div>
+        <div>
+          <div style="font-weight:700;color:var(--navy);">AI Search Readiness Score</div>
+          <div style="font-size:.875rem;color:var(--gray-500);">How likely AI assistants are to cite your content</div>
+        </div>
+      </div>
+    `;
+    if (aiSection.eeat) {
+      html += `<div class="mb-4"><div style="font-weight:700;color:var(--navy);margin-bottom:8px;">E-E-A-T Assessment</div><p style="font-size:.9375rem;color:var(--gray-700);">${aiSection.eeat}</p></div>`;
+    }
+    if (aiSection.recommendations && aiSection.recommendations.length) {
+      html += `<div style="font-weight:700;color:var(--navy);margin-bottom:10px;">Recommendations for AI Search</div><div class="issues-list">`;
+      aiSection.recommendations.forEach(r => {
+        html += `<div class="issue-card"><div class="issue-priority medium"></div><div><div style="font-weight:700;color:var(--navy);margin-bottom:4px;">${r.title || r}</div>${r.description ? `<p style="font-size:.875rem;">${r.description}</p>` : ''}${r.fix ? `<div style="font-size:.8125rem;color:var(--blue);font-weight:600;margin-top:6px;">→ ${r.fix}</div>` : ''}</div></div>`;
+      });
+      html += '</div>';
+    }
+    if (!html.includes('Recommendations') && !aiSection.eeat) {
+      html += `<p style="color:var(--gray-500);">AI search analysis is included in your full report data above.</p>`;
+    }
+    container.innerHTML = html;
+  }
+
+  function renderStrengths(strengths) {
+    const list = document.getElementById('strengthsList');
+    list.innerHTML = '';
+    if (!strengths.length) { list.innerHTML = '<p style="color:var(--gray-500);">Strengths will appear here.</p>'; return; }
+    strengths.forEach(s => {
+      const div = document.createElement('div');
+      div.className = 'issue-card';
+      div.innerHTML = `<div style="color:var(--green);font-weight:800;font-size:1.125rem;">✓</div><div style="font-size:.9375rem;color:var(--gray-700);">${s}</div>`;
+      list.appendChild(div);
+    });
+  }
+
+  function downloadPdf() {
+    const btn = document.getElementById('downloadPdf');
+    btn.textContent = 'Preparing PDF…';
+    btn.disabled = true;
+    setTimeout(() => {
+      window.print();
+      btn.textContent = '⬇ Download PDF';
+      btn.disabled = false;
+    }, 300);
+  }
+</script>
+</body>
+</html>

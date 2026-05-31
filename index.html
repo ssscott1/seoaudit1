@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SEO Audit Pro — AI-Powered SEO & Search Optimisation</title>
+  <meta name="description" content="Instantly analyse any website for SEO and AI search optimisation. Get a free score and top issues, then unlock a full prioritised report with 90-day action plan.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    .hero-visual { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
+    @media (max-width: 900px) { .hero-visual { grid-template-columns: 1fr; } .hero-preview { display: none; } }
+    .preview-card { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12); border-radius: 16px; padding: 24px; }
+    .preview-score { font-size: 4rem; font-weight: 800; background: linear-gradient(135deg, #60a5fa, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .preview-issue { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 12px 16px; margin-top: 10px; display: flex; gap: 10px; align-items: flex-start; }
+    .preview-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+    .preview-text { color: rgba(255,255,255,.7); font-size: 0.875rem; }
+    .preview-label { font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px; }
+    .logos-bar { display: flex; align-items: center; gap: 32px; flex-wrap: wrap; opacity: .5; }
+    .logos-bar span { font-size: 0.875rem; font-weight: 700; color: var(--gray-400); letter-spacing: .05em; }
+    .faq-item { border-bottom: 1px solid var(--gray-200); }
+    .faq-question { display: flex; align-items: center; justify-content: space-between; padding: 20px 0; cursor: pointer; font-weight: 600; color: var(--navy); user-select: none; }
+    .faq-question:hover { color: var(--blue); }
+    .faq-arrow { transition: transform .2s; font-size: 1.25rem; color: var(--gray-400); flex-shrink: 0; }
+    .faq-item.open .faq-arrow { transform: rotate(180deg); }
+    .faq-answer { color: var(--gray-600); line-height: 1.7; max-height: 0; overflow: hidden; transition: max-height .3s ease, padding .3s; }
+    .faq-item.open .faq-answer { max-width: none; padding-bottom: 20px; }
+    .testimonial-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
+    .testimonial { background: white; border: 1px solid var(--gray-200); border-radius: var(--radius-lg); padding: 28px; }
+    .testimonial blockquote { font-size: 0.9375rem; line-height: 1.7; color: var(--gray-700); margin-bottom: 20px; font-style: italic; }
+    .testimonial-author { display: flex; align-items: center; gap: 12px; }
+    .avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: white; font-size: 0.875rem; }
+    .stars { color: #fbbf24; font-size: 0.875rem; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="container">
+    <div class="nav-inner">
+      <a href="/" class="logo">
+        <div class="logo-icon">⚡</div>
+        SEO Audit Pro
+      </a>
+      <div class="nav-links">
+        <a href="#how-it-works">How it works</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#faq">FAQ</a>
+      </div>
+      <a href="#audit" class="btn btn-primary btn-sm">Free Audit</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="audit">
+  <div class="container">
+    <div class="hero-visual">
+      <div>
+        <div class="hero-badge">✨ Free instant analysis</div>
+        <h1>Is your website<br><span>invisible to AI?</span></h1>
+        <p>Get an instant SEO and AI search optimisation score for any website. Discover what's costing you traffic — in seconds, for free.</p>
+
+        <div class="url-form">
+          <form id="auditForm">
+            <div class="url-input-group">
+              <input
+                type="url"
+                id="urlInput"
+                class="url-input"
+                placeholder="https://yourbusiness.com"
+                required
+                autocomplete="off"
+              />
+              <button type="submit" class="btn btn-primary" id="analyzeBtn">
+                <span id="analyzeBtnText">Analyse Site</span>
+                <div class="spinner spinner-sm hidden" id="analyzeSpinner"></div>
+              </button>
+            </div>
+            <p class="url-hint">✓ Free  ·  ✓ No account required  ·  ✓ Results in ~15 seconds</p>
+          </form>
+        </div>
+
+        <div class="trust-bar mt-6">
+          <div class="trust-item">✓ <span>Powered by Claude AI</span></div>
+          <div class="trust-item">✓ <span>Google & AI search</span></div>
+          <div class="trust-item">✓ <span>Stripe secured</span></div>
+        </div>
+      </div>
+
+      <div class="hero-preview">
+        <div class="preview-card">
+          <div style="color: rgba(255,255,255,.5); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px;">Overall SEO Score</div>
+          <div class="preview-score">47</div>
+          <div style="color: rgba(255,255,255,.4); font-size: 0.875rem; margin-bottom: 20px;">Needs improvement — 14 issues found</div>
+
+          <div style="color: rgba(255,255,255,.5); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px;">Top Issues Found</div>
+          <div class="preview-issue">
+            <div class="preview-dot" style="background: #ef4444;"></div>
+            <div>
+              <div class="preview-label" style="color: #f87171;">Critical</div>
+              <div class="preview-text">Missing meta descriptions on 8 pages</div>
+            </div>
+          </div>
+          <div class="preview-issue">
+            <div class="preview-dot" style="background: #f59e0b;"></div>
+            <div>
+              <div class="preview-label" style="color: #fbbf24;">High</div>
+              <div class="preview-text">No structured data for AI assistants</div>
+            </div>
+          </div>
+          <div class="preview-issue">
+            <div class="preview-dot" style="background: #f59e0b;"></div>
+            <div>
+              <div class="preview-label" style="color: #fbbf24;">High</div>
+              <div class="preview-text">Page speed score: 38/100</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LOGOS / SOCIAL PROOF -->
+<section style="background: white; padding: 28px 0; border-bottom: 1px solid var(--gray-200);">
+  <div class="container">
+    <div style="display: flex; align-items: center; gap: 24px; flex-wrap: wrap;">
+      <span style="font-size: 0.8125rem; color: var(--gray-400); white-space: nowrap;">Optimises for:</span>
+      <div class="logos-bar">
+        <span>GOOGLE</span>
+        <span>CHATGPT</span>
+        <span>PERPLEXITY</span>
+        <span>BING AI</span>
+        <span>CLAUDE</span>
+        <span>GEMINI</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section" id="how-it-works" style="background: white;">
+  <div class="container">
+    <div class="text-center mb-8">
+      <h2>How it works</h2>
+      <p class="mt-2" style="max-width: 500px; margin: 8px auto 0;">From URL to actionable insights in under a minute</p>
+    </div>
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-number">1</div>
+        <h4>Enter your URL</h4>
+        <p>Paste your website address. We'll fetch and analyse the page instantly using our AI engine.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">2</div>
+        <h4>Get your free score</h4>
+        <p>See your SEO and AI search score immediately, plus your top 3 most critical issues — completely free.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">3</div>
+        <h4>Unlock full report</h4>
+        <p>Pay once for a prioritised fix list, competitor comparison, and a tailored 90-day action plan.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">4</div>
+        <h4>Implement & grow</h4>
+        <p>Follow your roadmap. Optionally subscribe for monthly audits to track your progress over time.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WHAT WE ANALYSE -->
+<section class="section" style="background: var(--gray-50);">
+  <div class="container">
+    <div class="text-center mb-8">
+      <h2>Everything we analyse</h2>
+      <p class="mt-2">Comprehensive coverage of technical SEO and AI search readiness</p>
+    </div>
+    <div class="grid-2" style="gap: 24px;">
+      <div class="card card-lg">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+          <div class="section-icon blue" style="width: 40px; height: 40px; font-size: 1.25rem;">🔍</div>
+          <h3 style="font-size: 1.125rem;">Traditional SEO</h3>
+        </div>
+        <ul class="feature-list">
+          <li>Title tags & meta descriptions</li>
+          <li>Heading structure (H1-H6)</li>
+          <li>Page speed & Core Web Vitals</li>
+          <li>Image optimisation & alt text</li>
+          <li>Mobile responsiveness signals</li>
+          <li>Internal linking structure</li>
+          <li>URL structure & canonicals</li>
+          <li>Schema markup & structured data</li>
+          <li>Robots.txt & sitemap</li>
+        </ul>
+      </div>
+      <div class="card card-lg">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+          <div class="section-icon" style="width: 40px; height: 40px; font-size: 1.25rem; background: linear-gradient(135deg, #ede9fe, #ddd6fe);">🤖</div>
+          <h3 style="font-size: 1.125rem;">AI Search Optimisation</h3>
+        </div>
+        <ul class="feature-list">
+          <li>E-E-A-T signals (Experience, Expertise, Authority, Trust)</li>
+          <li>Content depth & originality</li>
+          <li>FAQ & featured snippet readiness</li>
+          <li>Conversational content structure</li>
+          <li>Entity recognition & topical authority</li>
+          <li>Answer-format content</li>
+          <li>AI citation potential</li>
+          <li>Knowledge graph eligibility</li>
+          <li>SGE & AI Overview readiness</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="section" id="pricing" style="background: white;">
+  <div class="container">
+    <div class="text-center mb-8">
+      <h2>Simple, transparent pricing</h2>
+      <p class="mt-2">Start free. Pay only when you're ready for the full picture.</p>
+    </div>
+    <div class="pricing-grid">
+
+      <!-- Free -->
+      <div class="pricing-card">
+        <h3 style="margin-bottom: 4px;">Free Snapshot</h3>
+        <p style="font-size: 0.875rem; margin-bottom: 20px;">Instant health check</p>
+        <div style="display: flex; align-items: flex-end; gap: 4px; margin-bottom: 28px;">
+          <div class="price-amount">$0</div>
+        </div>
+        <ul class="feature-list mb-6">
+          <li>Overall SEO score (0–100)</li>
+          <li>AI search readiness score</li>
+          <li>Top 3 critical issues</li>
+          <li>Instant results</li>
+          <li class="missing">Full issue list (14+ items)</li>
+          <li class="missing">Competitor comparison</li>
+          <li class="missing">90-day action plan</li>
+          <li class="missing">PDF report</li>
+        </ul>
+        <a href="#audit" class="btn btn-secondary btn-full">Start free audit</a>
+      </div>
+
+      <!-- One-time -->
+      <div class="pricing-card featured">
+        <div class="featured-badge">Most popular</div>
+        <h3 style="margin-bottom: 4px;">Full Report</h3>
+        <p style="font-size: 0.875rem; margin-bottom: 20px;">One-time deep-dive</p>
+        <div style="display: flex; align-items: flex-end; gap: 4px; margin-bottom: 28px;">
+          <div class="price-amount">$199</div>
+          <div class="price-period" style="margin-bottom: 10px;">one-time</div>
+        </div>
+        <ul class="feature-list mb-6">
+          <li>Everything in Free</li>
+          <li>Full prioritised issue list</li>
+          <li>Competitor comparison (3 sites)</li>
+          <li>90-day SEO + AI action plan</li>
+          <li>On-screen interactive report</li>
+          <li>PDF report download</li>
+          <li>Email delivery</li>
+          <li class="missing">Monthly tracking</li>
+        </ul>
+        <a href="#audit" class="btn btn-primary btn-full">Get full report</a>
+      </div>
+
+      <!-- Monthly -->
+      <div class="pricing-card">
+        <h3 style="margin-bottom: 4px;">Monthly Audit</h3>
+        <p style="font-size: 0.875rem; margin-bottom: 20px;">Ongoing optimisation</p>
+        <div style="display: flex; align-items: flex-end; gap: 4px; margin-bottom: 28px;">
+          <div class="price-amount">$49</div>
+          <div class="price-period" style="margin-bottom: 10px;">/month</div>
+        </div>
+        <ul class="feature-list mb-6">
+          <li>Everything in Full Report</li>
+          <li>Monthly re-audit & tracking</li>
+          <li>Progress score comparison</li>
+          <li>Updated action plan each month</li>
+          <li>Priority email support</li>
+          <li>Cancel anytime</li>
+        </ul>
+        <a href="#audit" class="btn btn-outline btn-full">Start monthly plan</a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="section" style="background: var(--gray-50);">
+  <div class="container">
+    <div class="text-center mb-8">
+      <h2>Trusted by business owners</h2>
+    </div>
+    <div class="testimonial-grid">
+      <div class="testimonial">
+        <div class="stars">★★★★★</div>
+        <blockquote>"Within a week of implementing the recommendations, our organic traffic increased by 34%. The AI search section was eye-opening — we had no idea how poorly we were set up for ChatGPT searches."</blockquote>
+        <div class="testimonial-author">
+          <div class="avatar" style="background: linear-gradient(135deg, #3b82f6, #6366f1);">SJ</div>
+          <div>
+            <div style="font-weight: 700; font-size: 0.9375rem; color: var(--navy);">Sarah J.</div>
+            <div style="font-size: 0.8125rem; color: var(--gray-500);">E-commerce store owner</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial">
+        <div class="stars">★★★★★</div>
+        <blockquote>"The 90-day plan turned an overwhelming task into a clear roadmap. My developer could action everything straight away. Best $199 I've spent on marketing."</blockquote>
+        <div class="testimonial-author">
+          <div class="avatar" style="background: linear-gradient(135deg, #10b981, #059669);">MT</div>
+          <div>
+            <div style="font-weight: 700; font-size: 0.9375rem; color: var(--navy);">Mark T.</div>
+            <div style="font-size: 0.8125rem; color: var(--gray-500);">SaaS founder</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial">
+        <div class="stars">★★★★★</div>
+        <blockquote>"The monthly subscription keeps us accountable. We can see our scores improving each month and always have a fresh list of what to prioritise next."</blockquote>
+        <div class="testimonial-author">
+          <div class="avatar" style="background: linear-gradient(135deg, #f59e0b, #d97706);">RL</div>
+          <div>
+            <div style="font-weight: 700; font-size: 0.9375rem; color: var(--navy);">Rachel L.</div>
+            <div style="font-size: 0.8125rem; color: var(--gray-500);">Marketing agency owner</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="section" id="faq" style="background: white;">
+  <div class="container container-sm">
+    <div class="text-center mb-8">
+      <h2>Frequently asked questions</h2>
+    </div>
+    <div id="faqList">
+      <div class="faq-item">
+        <div class="faq-question" onclick="toggleFaq(this)">
+          What does the free analysis include?
+          <span class="faq-arrow">↓</span>
+        </div>
+        <div class="faq-answer">The free analysis gives you an overall SEO score (0–100), an AI search readiness score, and your top 3 most critical issues — all within about 15 seconds. No account or credit card required.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-question" onclick="toggleFaq(this)">
+          What's included in the full $199 report?
+          <span class="faq-arrow">↓</span>
+        </div>
+        <div class="faq-answer">The full report includes a complete prioritised list of all issues found, a competitor comparison against 3 similar websites, and a detailed 90-day action plan covering both traditional SEO and AI search optimisation. You receive an interactive on-screen report plus a downloadable PDF.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-question" onclick="toggleFaq(this)">
+          What is AI search optimisation?
+          <span class="faq-arrow">↓</span>
+        </div>
+        <div class="faq-answer">AI search optimisation ensures your content is structured so that AI assistants (ChatGPT, Perplexity, Google's AI Overviews, Bing AI, Claude, Gemini) cite and recommend your website. As more searches happen through AI interfaces, this is becoming as important as traditional Google SEO.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-question" onclick="toggleFaq(this)">
+          How does the monthly subscription work?
+          <span class="faq-arrow">↓</span>
+        </div>
+        <div class="faq-answer">For $49/month, we run a full audit of your website every month, track your score progress, and update your action plan based on what's been fixed and what's changed. You can cancel anytime from your email — no questions asked.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-question" onclick="toggleFaq(this)">
+          How accurate is the analysis?
+          <span class="faq-arrow">↓</span>
+        </div>
+        <div class="faq-answer">Our analysis is powered by Claude (Anthropic's AI) and examines your actual page content. While we don't have access to Google Search Console data, our technical checks, content analysis, and AI readiness assessment are highly actionable. Most clients see measurable improvements within 30–60 days.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-question" onclick="toggleFaq(this)">
+          Is my data secure?
+          <span class="faq-arrow">↓</span>
+        </div>
+        <div class="faq-answer">Payments are processed by Stripe — we never see your card details. Your email and audit results are stored securely in Supabase (a SOC 2 compliant platform). We don't share your data with third parties.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="section" style="background: linear-gradient(135deg, var(--navy), #1e3a5f);">
+  <div class="container text-center">
+    <h2 style="color: white; margin-bottom: 16px;">Ready to see how your site performs?</h2>
+    <p style="color: #94a3b8; margin-bottom: 32px; font-size: 1.0625rem;">Get your free SEO score in under 15 seconds. No account needed.</p>
+    <a href="#audit" class="btn btn-primary btn-lg">Audit my website — it's free</a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-col">
+        <div class="logo mb-4">
+          <div class="logo-icon">⚡</div>
+          SEO Audit Pro
+        </div>
+        <p style="font-size: 0.875rem; line-height: 1.7; max-width: 280px;">AI-powered SEO and search optimisation audits for business owners who want to be found — by Google and AI assistants.</p>
+      </div>
+      <div class="footer-col">
+        <h5>Product</h5>
+        <a href="#how-it-works">How it works</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#faq">FAQ</a>
+      </div>
+      <div class="footer-col">
+        <h5>Legal</h5>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/terms.html">Terms of Service</a>
+        <a href="/refunds.html">Refund Policy</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2025 SEO Audit Pro. All rights reserved.</span>
+      <span>Powered by Claude AI · Stripe · Supabase</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // FAQ Toggle
+  function toggleFaq(el) {
+    const item = el.parentElement;
+    const isOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item').forEach(i => {
+      i.classList.remove('open');
+      i.querySelector('.faq-answer').style.maxHeight = null;
+    });
+    if (!isOpen) {
+      item.classList.add('open');
+      const answer = item.querySelector('.faq-answer');
+      answer.style.maxHeight = answer.scrollHeight + 'px';
+    }
+  }
+
+  // Audit Form
+  document.getElementById('auditForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const url = document.getElementById('urlInput').value.trim();
+    if (!url) return;
+
+    const btn = document.getElementById('analyzeBtn');
+    const btnText = document.getElementById('analyzeBtnText');
+    const spinner = document.getElementById('analyzeSpinner');
+
+    btn.disabled = true;
+    btnText.textContent = 'Analysing…';
+    spinner.classList.remove('hidden');
+
+    // Store URL and redirect to analysis page
+    sessionStorage.setItem('auditUrl', url);
+    window.location.href = '/analysis.html?url=' + encodeURIComponent(url);
+  });
+
+  // Smooth scroll for anchor links
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    });
+  });
+</script>
+</body>
+</html>
