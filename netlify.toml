@@ -1,10 +1,13 @@
 [build]
+  command = "npm install"
   functions = "netlify/functions"
   publish = "."
 
+[build.environment]
+  NODE_VERSION = "18"
+
 [functions]
   node_bundler = "esbuild"
-  external_node_modules = ["pdfkit"]
 
 [[redirects]]
   from = "/api/*"

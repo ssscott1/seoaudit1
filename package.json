@@ -5,13 +5,15 @@
   "engines": {
     "node": ">=18"
   },
+  "scripts": {
+    "build": "echo 'Static site — no build step required'"
+  },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.27.0",
     "@supabase/supabase-js": "^2.45.0",
     "cheerio": "^1.0.0-rc.12",
     "node-fetch": "^2.7.0",
     "stripe": "^16.0.0",
-    "pdfkit": "^0.15.0",
     "nodemailer": "^6.9.0"
   }
 }
