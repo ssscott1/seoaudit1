@@ -480,10 +480,10 @@
   async function retriggerAnalysis(id) {
     if (!confirm('Re-run the full analysis for this audit?')) return;
     try {
-      await fetch('/api/generate-full-report', {
+      await fetch('/api/generate-full-report-background', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Admin-Key': getAdminPass() },
-        body: JSON.stringify({ auditId: id })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ auditId: id, adminKey: getAdminPass() })
       });
       alert('Analysis re-triggered. Check back in ~60 seconds.');
     } catch(e) { alert('Error: ' + e.message); }

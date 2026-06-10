@@ -13,11 +13,17 @@ exports.handler = async (event) => {
   }
 
   const sig = event.headers['stripe-signature'];
-  let stripeEvent;
 
+  // Netlify may base64-encode the body for binary content types.
+  // Stripe signature verification requires the raw bytes, so decode if needed.
+  const rawBody = event.isBase64Encoded
+    ? Buffer.from(event.body, 'base64').toString('utf-8')
+    : event.body;
+
+  let stripeEvent;
   try {
     stripeEvent = stripe.webhooks.constructEvent(
-      event.body,
+      rawBody,
       sig,
       process.env.STRIPE_WEBHOOK_SECRET
     );
@@ -26,7 +32,22 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: `Webhook Error: ${err.message}` };
   }
 
-  const siteUrl = process.env.SITE_URL || 'https://localhost:8888';
+  const siteUrl = process.env.SITE_URL || '';
+
+  // Helper: trigger the background report generator and await its 202 response.
+  // The background function does the heavy lifting asynchronously.
+  async function triggerReport(auditId) {
+    try {
+      const res = await fetch(`${siteUrl}/.netlify/functions/generate-full-report-background`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ auditId })
+      });
+      if (!res.ok) console.error(`Report trigger returned ${res.status} for audit ${auditId}`);
+    } catch (err) {
+      console.error('Report trigger failed:', err.message);
+    }
+  }
 
   try {
     switch (stripeEvent.type) {
@@ -34,25 +55,21 @@ exports.handler = async (event) => {
       case 'checkout.session.completed': {
         const session = stripeEvent.data.object;
         const { auditId, url, email, name, plan } = session.metadata || {};
-
         const isSubscription = session.mode === 'subscription';
         const amount = session.amount_total || 0;
 
-        // Find or create audit record
+        // Find the audit record — try by auditId first, then by session ID
         let audit = null;
         if (auditId) {
           const { data } = await supabase.from('audits').select('*').eq('id', auditId).single();
           audit = data;
         }
-
-        if (!audit && session.metadata?.url) {
-          // Find by session ID
+        if (!audit) {
           const { data } = await supabase.from('audits').select('*').eq('stripe_session_id', session.id).single();
           audit = data;
         }
 
         if (!audit) {
-          // Create new audit record
           const { data } = await supabase
             .from('audits')
             .insert({
@@ -69,7 +86,6 @@ exports.handler = async (event) => {
             .single();
           audit = data;
         } else {
-          // Update existing audit
           await supabase
             .from('audits')
             .update({
@@ -78,13 +94,12 @@ exports.handler = async (event) => {
               amount_paid: amount,
               email: email || session.customer_details?.email,
               name: name || session.customer_details?.name,
-              stripe_payment_intent: session.payment_intent,
+              stripe_payment_intent: session.payment_intent || null,
               stripe_subscription_id: session.subscription || null
             })
             .eq('id', audit.id);
         }
 
-        // Handle subscription record
         if (isSubscription && session.subscription) {
           await supabase
             .from('subscriptions')
@@ -99,33 +114,26 @@ exports.handler = async (event) => {
             }, { onConflict: 'stripe_subscription_id' });
         }
 
-        // Update contact record
         const contactEmail = email || session.customer_details?.email;
         if (contactEmail) {
-          const { data: contact } = await supabase.from('contacts').select('*').eq('email', contactEmail).single();
+          const { data: existingContact } = await supabase
+            .from('contacts').select('total_spent, total_audits, is_subscriber').eq('email', contactEmail).single();
           await supabase
             .from('contacts')
             .upsert({
               email: contactEmail,
-              name: name || session.customer_details?.name || contact?.name,
-              website: url || audit?.url || contact?.website,
-              total_spent: (contact?.total_spent || 0) + amount,
-              total_audits: (contact?.total_audits || 0) + 1,
-              is_subscriber: isSubscription || contact?.is_subscriber || false,
+              name: name || session.customer_details?.name || null,
+              website: url || audit?.url || null,
+              total_spent: (existingContact?.total_spent || 0) + amount,
+              total_audits: (existingContact?.total_audits || 0) + 1,
+              is_subscriber: isSubscription || existingContact?.is_subscriber || false,
               updated_at: new Date().toISOString()
             }, { onConflict: 'email' });
         }
 
-        // Trigger full report generation asynchronously
         if (audit?.id) {
-          // Fire and forget — call our own function
-          fetch(`${siteUrl}/.netlify/functions/generate-full-report`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ auditId: audit.id })
-          }).catch(err => console.error('Report generation trigger failed:', err));
+          await triggerReport(audit.id);
         }
-
         break;
       }
 
@@ -149,15 +157,11 @@ exports.handler = async (event) => {
           .update({ status: 'cancelled', updated_at: new Date().toISOString() })
           .eq('stripe_subscription_id', sub.id);
 
-        // Update contact
-        const { data: subData } = await supabase.from('subscriptions').select('email').eq('stripe_subscription_id', sub.id).single();
+        const { data: subData } = await supabase
+          .from('subscriptions').select('email').eq('stripe_subscription_id', sub.id).single();
         if (subData?.email) {
-          // Check if they have other active subs
           const { data: otherSubs } = await supabase
-            .from('subscriptions')
-            .select('id')
-            .eq('email', subData.email)
-            .eq('status', 'active');
+            .from('subscriptions').select('id').eq('email', subData.email).eq('status', 'active');
           if (!otherSubs?.length) {
             await supabase.from('contacts').update({ is_subscriber: false }).eq('email', subData.email);
           }
@@ -177,17 +181,12 @@ exports.handler = async (event) => {
       }
 
       case 'invoice.payment_succeeded': {
-        // Monthly renewal — trigger a new audit for subscribers
         const invoice = stripeEvent.data.object;
         if (invoice.subscription && invoice.billing_reason === 'subscription_cycle') {
           const { data: sub } = await supabase
-            .from('subscriptions')
-            .select('*')
-            .eq('stripe_subscription_id', invoice.subscription)
-            .single();
+            .from('subscriptions').select('*').eq('stripe_subscription_id', invoice.subscription).single();
 
           if (sub?.url) {
-            // Create a new audit for the monthly cycle
             const { data: newAudit } = await supabase
               .from('audits')
               .insert({
@@ -204,11 +203,7 @@ exports.handler = async (event) => {
               .single();
 
             if (newAudit?.id) {
-              fetch(`${siteUrl}/.netlify/functions/generate-full-report`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ auditId: newAudit.id })
-              }).catch(err => console.error('Monthly report trigger failed:', err));
+              await triggerReport(newAudit.id);
             }
           }
         }

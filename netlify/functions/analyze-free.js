@@ -17,6 +17,18 @@ const CORS = {
   'Content-Type': 'application/json'
 };
 
+// Safely extract the first JSON object from Claude's response,
+// handling cases where it wraps output in markdown code fences.
+function extractJson(text) {
+  // Strip markdown code fences: ```json ... ``` or ``` ... ```
+  const fenceMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+  if (fenceMatch) return JSON.parse(fenceMatch[1]);
+  // Fall back to matching the outermost { ... }
+  const braceMatch = text.match(/\{[\s\S]*\}/);
+  if (braceMatch) return JSON.parse(braceMatch[0]);
+  throw new Error('No JSON object found in Claude response');
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS };
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers: CORS, body: JSON.stringify({ error: 'Method not allowed' }) };
@@ -33,21 +45,21 @@ exports.handler = async (event) => {
   // Normalise URL
   try {
     if (!url.startsWith('http')) url = 'https://' + url;
-    new URL(url); // validate
+    new URL(url);
   } catch {
     return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Invalid URL format' }) };
   }
 
-  // Fetch the page
+  // Fetch the page — 7 second timeout leaves room for the Claude call
   let html = '';
   let fetchError = null;
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
+    const timeout = setTimeout(() => controller.abort(), 7000);
     const pageRes = await fetch(url, {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; SEOAuditBot/1.0; +https://seoauditpro.com)',
+        'User-Agent': 'Mozilla/5.0 (compatible; SEOAuditBot/1.0)',
         'Accept': 'text/html,application/xhtml+xml',
         'Accept-Language': 'en-US,en;q=0.9'
       }
@@ -70,114 +82,69 @@ exports.handler = async (event) => {
     };
   }
 
-  // Parse HTML with Cheerio
+  // Parse HTML
   const $ = cheerio.load(html);
-
   const pageTitle = $('title').first().text().trim() || '';
   const metaDesc = $('meta[name="description"]').attr('content') || '';
   const h1s = $('h1').map((_, el) => $(el).text().trim()).get().filter(Boolean);
   const h2s = $('h2').map((_, el) => $(el).text().trim()).get().filter(Boolean).slice(0, 10);
-  const h3s = $('h3').map((_, el) => $(el).text().trim()).get().filter(Boolean).slice(0, 8);
-
   const images = $('img');
   const totalImages = images.length;
   const imagesWithoutAlt = images.filter((_, el) => !$(el).attr('alt')).length;
-
   const canonicalUrl = $('link[rel="canonical"]').attr('href') || '';
   const robotsMeta = $('meta[name="robots"]').attr('content') || '';
-  const hasSchema = html.includes('application/ld+json') || html.includes('itemtype="http://schema.org') || html.includes('itemtype="https://schema.org');
-  const hasSitemap = html.toLowerCase().includes('sitemap');
+  const hasSchema = html.includes('application/ld+json') || html.includes('itemtype="https://schema.org');
   const hasOpenGraph = $('meta[property="og:title"]').length > 0;
   const hasTwitterCard = $('meta[name="twitter:card"]').length > 0;
-
   const bodyText = $('body').text().replace(/\s+/g, ' ').trim();
   const wordCount = bodyText.split(/\s+/).filter(Boolean).length;
+  const hostname = new URL(url).hostname;
+  const internalLinks = $('a[href]').filter((_, el) => { const h = $(el).attr('href')||''; return h.startsWith('/') || h.includes(hostname); }).length;
+  const externalLinks = $('a[href]').filter((_, el) => { const h = $(el).attr('href')||''; return h.startsWith('http') && !h.includes(hostname); }).length;
+  const contentSnippet = bodyText.slice(0, 2500);
 
-  const internalLinks = $('a[href]').filter((_, el) => {
-    const href = $(el).attr('href') || '';
-    return href.startsWith('/') || href.includes(new URL(url).hostname);
-  }).length;
+  const prompt = `You are an expert SEO analyst. Analyse this website data and return a concise JSON report.
 
-  const externalLinks = $('a[href]').filter((_, el) => {
-    const href = $(el).attr('href') || '';
-    return href.startsWith('http') && !href.includes(new URL(url).hostname);
-  }).length;
-
-  const viewportMeta = $('meta[name="viewport"]').attr('content') || '';
-  const hasViewport = Boolean(viewportMeta);
-  const hasHttps = url.startsWith('https://');
-
-  const contentSnippet = bodyText.slice(0, 3000);
-
-  // Build Claude prompt
-  const prompt = `You are an expert SEO analyst and AI search optimisation specialist. Analyse this website data and return a JSON report.
-
-Website URL: ${url}
-Page Title: ${pageTitle || 'MISSING'}
+URL: ${url}
+Title: ${pageTitle || 'MISSING'}
 Meta Description: ${metaDesc || 'MISSING'}
-H1 Tags: ${h1s.length ? h1s.join(' | ') : 'NONE FOUND'}
-H2 Tags (first 10): ${h2s.length ? h2s.join(' | ') : 'NONE'}
-H3 Tags (first 8): ${h3s.length ? h3s.join(' | ') : 'NONE'}
-Total Images: ${totalImages}
-Images Missing Alt Text: ${imagesWithoutAlt}
-Has Schema Markup: ${hasSchema}
-Has Canonical URL: ${Boolean(canonicalUrl)}
-Robots Meta: ${robotsMeta || 'none'}
-Has Viewport Meta: ${hasViewport}
-Has HTTPS: ${hasHttps}
-Has Open Graph Tags: ${hasOpenGraph}
-Has Twitter Card: ${hasTwitterCard}
-Has Sitemap Reference: ${hasSitemap}
-Word Count: ${wordCount}
-Internal Links: ${internalLinks}
-External Links: ${externalLinks}
+H1s: ${h1s.join(' | ') || 'NONE'}
+H2s (first 10): ${h2s.join(' | ') || 'NONE'}
+Images: ${totalImages} total, ${imagesWithoutAlt} missing alt text
+Schema: ${hasSchema}, Canonical: ${Boolean(canonicalUrl)}, Robots: ${robotsMeta || 'none'}
+Viewport: ${html.includes('viewport')}, HTTPS: ${url.startsWith('https://')}
+OG tags: ${hasOpenGraph}, Twitter cards: ${hasTwitterCard}
+Word count: ${wordCount}, Internal links: ${internalLinks}, External links: ${externalLinks}
 
-Content Snippet (first 3000 chars):
+Content snippet:
 ${contentSnippet}
 
-Return ONLY valid JSON in this exact structure (no markdown, no explanation):
+Return ONLY a raw JSON object (no markdown, no code fences, no explanation):
 {
   "seoScore": <integer 0-100>,
   "aiScore": <integer 0-100>,
-  "overallScore": <integer 0-100, weighted average>,
-  "summary": "<2-3 sentence overview of the site's SEO health>",
-  "strengths": [
-    "<strength 1>",
-    "<strength 2>",
-    "<strength 3>"
-  ],
+  "overallScore": <integer 0-100>,
+  "summary": "<2-3 sentences on overall SEO health>",
+  "strengths": ["<strength 1>","<strength 2>","<strength 3>"],
   "topIssues": [
-    {
-      "priority": "critical|high|medium|low",
-      "category": "technical|content|on-page|ai-search|performance",
-      "title": "<concise issue title>",
-      "description": "<what the issue is and why it matters>",
-      "fix": "<specific actionable fix>"
-    }
+    {"priority":"critical|high|medium|low","category":"technical|content|on-page|ai-search|performance","title":"<title>","description":"<description>","fix":"<actionable fix>"},
+    {"priority":"...","category":"...","title":"...","description":"...","fix":"..."},
+    {"priority":"...","category":"...","title":"...","description":"...","fix":"..."}
   ],
-  "issueCount": <total number of SEO issues found>,
-  "quickWins": ["<quick win 1>", "<quick win 2>", "<quick win 3>"]
+  "issueCount": <total issues found>,
+  "quickWins": ["<win 1>","<win 2>","<win 3>"]
 }
-
-Rules:
-- topIssues must contain exactly 3 items (the most impactful ones)
-- Scores should be realistic and accurate — don't be too generous
-- If title is missing, that's critical. If meta desc is missing, that's high priority.
-- AI search score evaluates: E-E-A-T signals, content depth, FAQ/Q&A format, schema markup, entity clarity
-- issueCount is the TOTAL number of issues you've identified (not just the 3 shown)`;
+topIssues must have exactly 3 items. Scores must be realistic.`;
 
   let analysisResult;
   try {
     const message = await anthropic.messages.create({
-      model: 'claude-opus-4-8',
-      max_tokens: 1500,
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1000,
       messages: [{ role: 'user', content: prompt }]
     });
 
-    const raw = message.content[0].text.trim();
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('No JSON in response');
-    analysisResult = JSON.parse(jsonMatch[0]);
+    analysisResult = extractJson(message.content[0].text.trim());
   } catch (err) {
     return {
       statusCode: 500,
@@ -186,7 +153,7 @@ Rules:
     };
   }
 
-  // Store in Supabase
+  // Store result
   const { data: audit, error: dbError } = await supabase
     .from('audits')
     .insert({
@@ -217,7 +184,7 @@ Rules:
       summary: analysisResult.summary,
       strengths: analysisResult.strengths || [],
       topIssues: analysisResult.topIssues || [],
-      issueCount: analysisResult.issueCount || analysisResult.topIssues?.length || 3,
+      issueCount: analysisResult.issueCount || 3,
       quickWins: analysisResult.quickWins || [],
       pageTitle,
       wordCount
