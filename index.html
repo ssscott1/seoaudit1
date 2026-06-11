@@ -328,8 +328,13 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url })
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || data.error || 'Analysis failed');
+      let data = null;
+      try { data = await res.json(); } catch (parseErr) { /* non-JSON error page */ }
+      if (!res.ok || !data) {
+        const msg = (data && (data.detail || data.error || data.errorMessage))
+          || ('The analysis service returned an unexpected error (HTTP ' + res.status + '). Please try again in a moment.');
+        throw new Error(msg);
+      }
 
       resultUrl.textContent = data.url;
       resultsGrid.innerHTML = '';

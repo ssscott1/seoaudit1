@@ -1,5 +1,5 @@
-const fetch = require('node-fetch');
-const cheerio = require('cheerio');
+// Zero-dependency analyzer — uses Node 18's built-in fetch and regex-based
+// HTML parsing so nothing can break in the serverless bundle.
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -7,6 +7,143 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Content-Type': 'application/json'
 };
+
+function json(statusCode, body) {
+  return { statusCode, headers: CORS, body: JSON.stringify(body) };
+}
+
+exports.handler = async (event) => {
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS };
+  if (event.httpMethod !== 'POST') return json(405, { error: 'Method not allowed' });
+
+  try {
+    return await analyze(event);
+  } catch (err) {
+    console.error('Unhandled analyzer error:', err);
+    return json(500, { error: 'Analysis error', detail: err.message });
+  }
+};
+
+async function analyze(event) {
+  let url;
+  try {
+    ({ url } = JSON.parse(event.body));
+  } catch {
+    return json(400, { error: 'Invalid request body' });
+  }
+  if (!url || typeof url !== 'string') return json(400, { error: 'URL is required' });
+
+  url = url.trim();
+  try {
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    new URL(url);
+  } catch {
+    return json(400, { error: 'That doesn\'t look like a valid URL' });
+  }
+
+  // Fetch the page — 7s budget leaves headroom inside the 10s function limit
+  let html = '';
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 7000);
+    const res = await fetch(url, {
+      signal: controller.signal,
+      redirect: 'follow',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'en-AU,en;q=0.9'
+      }
+    });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    // Cap at ~500KB of HTML — plenty for head + main content signals
+    html = (await res.text()).slice(0, 500000);
+  } catch (err) {
+    const reason = err.name === 'AbortError' ? 'it took too long to respond' : err.message;
+    return json(422, {
+      error: 'Unable to fetch website',
+      detail: `We couldn't reach ${url} — ${reason}. The site may be blocking automated requests, or the URL may be incorrect.`
+    });
+  }
+
+  const signals = extractSignals(html, url);
+
+  let result = null;
+  if (process.env.ANTHROPIC_API_KEY) {
+    try {
+      result = await analyzeWithClaude(url, signals, html);
+    } catch (err) {
+      console.error('Claude analysis failed, falling back to rules:', err.message);
+    }
+  }
+  if (!result) result = analyzeWithRules(signals);
+
+  return json(200, { url, ...result });
+}
+
+/* ---------- HTML signal extraction (regex-based, no dependencies) ---------- */
+
+function stripTags(s) {
+  return s.replace(/<[^>]*>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function extractSignals(html, url) {
+  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  const pageTitle = titleMatch ? stripTags(titleMatch[1]) : '';
+
+  // Meta description — handle both attribute orders
+  let metaDesc = '';
+  const metaTags = html.match(/<meta\b[^>]*>/gi) || [];
+  for (const tag of metaTags) {
+    if (/name\s*=\s*["']description["']/i.test(tag)) {
+      const m = tag.match(/content\s*=\s*["']([^"']*)["']/i);
+      if (m) { metaDesc = m[1].trim(); break; }
+    }
+  }
+
+  const headings = (re) => {
+    const out = [];
+    let m;
+    while ((m = re.exec(html)) !== null && out.length < 15) {
+      const text = stripTags(m[1]);
+      if (text) out.push(text);
+    }
+    return out;
+  };
+  const h1s = headings(/<h1[^>]*>([\s\S]*?)<\/h1>/gi);
+  const h2s = headings(/<h2[^>]*>([\s\S]*?)<\/h2>/gi);
+
+  const imgTags = html.match(/<img\b[^>]*>/gi) || [];
+  const totalImages = imgTags.length;
+  const imagesWithoutAlt = imgTags.filter(t => !/\balt\s*=/i.test(t)).length;
+
+  const linkTags = html.match(/<link\b[^>]*>/gi) || [];
+  const hasCanonical = linkTags.some(t => /rel\s*=\s*["']canonical["']/i.test(t));
+
+  const hasSchema = /application\/ld\+json/i.test(html) || /schema\.org/i.test(html);
+  const hasOG = /property\s*=\s*["']og:title["']/i.test(html);
+  const hasViewport = metaTags.some(t => /name\s*=\s*["']viewport["']/i.test(t));
+  const isHttps = url.startsWith('https://');
+  const hasFAQ = /faq|frequently asked/i.test(html);
+
+  // Visible text: drop scripts/styles/head, then strip tags
+  const bodyHtml = html
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
+    .replace(/^[\s\S]*?<body[^>]*>/i, ' ');
+  const bodyText = stripTags(bodyHtml);
+  const wordCount = bodyText.split(/\s+/).filter(Boolean).length;
+
+  return {
+    pageTitle, metaDesc, h1s, h2s, totalImages, imagesWithoutAlt,
+    hasCanonical, hasSchema, hasOG, hasViewport, isHttps, wordCount, hasFAQ,
+    contentSnippet: bodyText.slice(0, 2500)
+  };
+}
+
+/* ---------- Claude analysis (direct API call, no SDK) ---------- */
 
 function extractJson(text) {
   const fenceMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
@@ -16,101 +153,7 @@ function extractJson(text) {
   throw new Error('No JSON object found in response');
 }
 
-exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS };
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, headers: CORS, body: JSON.stringify({ error: 'Method not allowed' }) };
-  }
-
-  let url;
-  try {
-    ({ url } = JSON.parse(event.body));
-  } catch {
-    return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Invalid request body' }) };
-  }
-  if (!url) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'URL is required' }) };
-
-  try {
-    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-    new URL(url);
-  } catch {
-    return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'That doesn\'t look like a valid URL' }) };
-  }
-
-  // Fetch the page (7s budget leaves room for analysis within the function timeout)
-  let html = '';
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 7000);
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; SEOCheckBot/1.0)',
-        'Accept': 'text/html,application/xhtml+xml',
-        'Accept-Language': 'en-AU,en;q=0.9'
-      }
-    });
-    clearTimeout(timeout);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    html = await res.text();
-  } catch (err) {
-    return {
-      statusCode: 422,
-      headers: CORS,
-      body: JSON.stringify({
-        error: 'Unable to fetch website',
-        detail: `We couldn't reach ${url}. The site may be blocking automated requests, or the URL may be incorrect. (${err.message})`
-      })
-    };
-  }
-
-  // Extract on-page signals
-  const $ = cheerio.load(html);
-  const pageTitle = $('title').first().text().trim();
-  const metaDesc = $('meta[name="description"]').attr('content') || '';
-  const h1s = $('h1').map((_, el) => $(el).text().trim()).get().filter(Boolean);
-  const h2s = $('h2').map((_, el) => $(el).text().trim()).get().filter(Boolean).slice(0, 10);
-  const images = $('img');
-  const totalImages = images.length;
-  const imagesWithoutAlt = images.filter((_, el) => !$(el).attr('alt')).length;
-  const hasCanonical = Boolean($('link[rel="canonical"]').attr('href'));
-  const hasSchema = html.includes('application/ld+json') || html.includes('schema.org');
-  const hasOG = $('meta[property="og:title"]').length > 0;
-  const hasViewport = $('meta[name="viewport"]').length > 0;
-  const isHttps = url.startsWith('https://');
-  const bodyText = $('body').text().replace(/\s+/g, ' ').trim();
-  const wordCount = bodyText.split(/\s+/).filter(Boolean).length;
-  const hasFAQ = /faq|frequently asked/i.test(html);
-  const contentSnippet = bodyText.slice(0, 2500);
-
-  const signals = {
-    pageTitle, metaDesc, h1s, h2s, totalImages, imagesWithoutAlt,
-    hasCanonical, hasSchema, hasOG, hasViewport, isHttps, wordCount, hasFAQ
-  };
-
-  let result;
-  if (process.env.ANTHROPIC_API_KEY) {
-    try {
-      result = await analyzeWithClaude(url, signals, contentSnippet);
-    } catch (err) {
-      console.error('Claude analysis failed, falling back to heuristics:', err.message);
-      result = analyzeWithRules(signals);
-    }
-  } else {
-    result = analyzeWithRules(signals);
-  }
-
-  return {
-    statusCode: 200,
-    headers: CORS,
-    body: JSON.stringify({ url, ...result })
-  };
-};
-
-async function analyzeWithClaude(url, s, contentSnippet) {
-  const Anthropic = require('@anthropic-ai/sdk');
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
+async function analyzeWithClaude(url, s, html) {
   const prompt = `You are an expert SEO and AI search (GEO) consultant. Analyse this page data and identify the 2 highest-impact SEO improvements and the single highest-impact AI search improvement.
 
 URL: ${url}
@@ -123,7 +166,7 @@ Canonical: ${s.hasCanonical}, Schema markup: ${s.hasSchema}, Open Graph: ${s.has
 Viewport: ${s.hasViewport}, HTTPS: ${s.isHttps}, Word count: ${s.wordCount}, FAQ content: ${s.hasFAQ}
 
 Content snippet:
-${contentSnippet}
+${s.contentSnippet}
 
 Return ONLY a raw JSON object (no markdown, no code fences):
 {
@@ -135,20 +178,35 @@ Return ONLY a raw JSON object (no markdown, no code fences):
 }
 Rules: exactly 2 seoImprovements. Be specific to THIS site, not generic. Plain language, no jargon.`;
 
-  const message = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 800,
-    messages: [{ role: 'user', content: prompt }]
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    signal: controller.signal,
+    headers: {
+      'x-api-key': process.env.ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 800,
+      messages: [{ role: 'user', content: prompt }]
+    })
   });
+  clearTimeout(timer);
 
-  const parsed = extractJson(message.content[0].text.trim());
+  if (!res.ok) throw new Error(`Anthropic API ${res.status}`);
+  const data = await res.json();
+  const parsed = extractJson(data.content[0].text.trim());
   if (!Array.isArray(parsed.seoImprovements) || !parsed.aiImprovement) {
     throw new Error('Unexpected response shape');
   }
   return parsed;
 }
 
-// Rule-based fallback so the tool still works if the AI call is unavailable.
+/* ---------- Rule-based analysis (always available) ---------- */
+
 function analyzeWithRules(s) {
   const seoCandidates = [];
 

@@ -7,10 +7,5 @@
   },
   "scripts": {
     "build": "echo 'Static site — no build step required'"
-  },
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.27.0",
-    "cheerio": "^1.0.0",
-    "node-fetch": "^2.7.0"
   }
 }
