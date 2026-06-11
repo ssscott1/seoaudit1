@@ -1,7 +1,7 @@
 {
-  "name": "seo-audit-pro",
+  "name": "seo-ai-search-check",
   "version": "1.0.0",
-  "description": "SEO & AI Search Optimisation Audit Tool",
+  "description": "Paste a link, get your top 2 SEO improvements and #1 AI search improvement",
   "engines": {
     "node": ">=18"
   },
@@ -10,10 +10,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.27.0",
-    "@supabase/supabase-js": "^2.45.0",
     "cheerio": "^1.0.0",
-    "node-fetch": "^2.7.0",
-    "stripe": "^16.0.0",
-    "nodemailer": "^6.9.0"
+    "node-fetch": "^2.7.0"
   }
 }
